@@ -1,0 +1,41 @@
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: bankingdb
+      POSTGRES_USER: razvan
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - banking_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U razvan -d bankingdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  order-processor:
+    build: ./order-processor
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/bankingdb
+      SPRING_DATASOURCE_USERNAME: razvan
+      SPRING_DATASOURCE_PASSWORD: secret
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  order-gateway:
+    build: ./order-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      ORDER_PROCESSOR_BASE_URL: http://order-processor:8081
+    depends_on:
+      - order-processor
+
+volumes:
+  banking_postgres_data:
