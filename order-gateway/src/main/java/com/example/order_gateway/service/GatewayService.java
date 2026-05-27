@@ -11,7 +11,9 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Service
 @Slf4j
@@ -20,12 +22,15 @@ public class GatewayService {
     private final OkHttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final String processorBaseUrl;
+    private final ExecutorService virtualThreadExecutor;
 
     public static final MediaType JSON = MediaType.get("application/json");
 
     public GatewayService(
-            @Value("${order.processor.base-url}") String processorBaseUrl) {
-        this.httpClient = new OkHttpClient();
+            @Value("${order.processor.base-url}") String processorBaseUrl,
+            OkHttpClient httpClient) {
+        this.virtualThreadExecutor = Executors.newVirtualThreadPerTaskExecutor();
+        this.httpClient = httpClient;
         this.objectMapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule());
         this.processorBaseUrl = processorBaseUrl;
@@ -41,13 +46,11 @@ public class GatewayService {
             if (!response.isSuccessful()) {
                 throw new RuntimeException("Error getting order: " + response.code());
             }
-            assert response.body() != null;
             return objectMapper.readValue(response.body().string(), OrderDTO.class);
         }
     }
 
-    private OrderDTO processOrder(Long orderId,
-                                  BigDecimal amount) throws IOException {
+    private OrderDTO processOrder(Long orderId, BigDecimal amount) throws IOException {
         ProcessOrderRequest requestBody = new ProcessOrderRequest();
         requestBody.setOrderId(orderId);
         requestBody.setRequestedAmount(amount);
@@ -65,23 +68,22 @@ public class GatewayService {
             if (!response.isSuccessful()) {
                 throw new RuntimeException("Error processing order: " + response.code());
             }
-            assert response.body() != null;
             return objectMapper.readValue(response.body().string(), OrderDTO.class);
         }
     }
 
-    public List<OrderDTO> processOrders(List<Long> orderIds) {
-        return orderIds.stream()
-                .map(orderId -> {
-                    try {
-                        log.info("Processing order: {}", orderId);
-                        OrderDTO order = getOrder(orderId);
-                        return processOrder(orderId, order.getAmount());
-                    } catch (IOException e) {
-                        log.error("Error processing order {}: {}", orderId, e.getMessage());
-                        throw new RuntimeException(e);
-                    }
-                })
-                .toList();
+    public OrderDTO processOrder(Long orderId) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                log.info("Getting order: {}", orderId);
+                OrderDTO order = getOrder(orderId);
+
+                log.info("Processing order: {}", orderId);
+                return processOrder(orderId, order.getAmount());
+            } catch (IOException e) {
+                log.error("Error processing order {}: {}", orderId, e.getMessage());
+                throw new RuntimeException(e);
+            }
+        }, virtualThreadExecutor).join();
     }
 }
