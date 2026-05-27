@@ -3,6 +3,7 @@ package com.example.order_processor.controller;
 import com.example.order_processor.dto.ProcessOrderRequest;
 import com.example.order_processor.model.Order;
 import com.example.order_processor.service.OrderService;
+import com.example.order_processor.service.RetryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 public class OrderController {
 
     private final OrderService orderService;
+    private final RetryService retryService;
 
     @GetMapping("/{id}")
     public ResponseEntity<Order> getOrder(@PathVariable Long id) {
@@ -25,7 +27,7 @@ public class OrderController {
             @PathVariable Long id,
             @RequestBody ProcessOrderRequest request) {
         request.setOrderId(id);
-        Order result = orderService.processOrder(request);
+        Order result = retryService.processWithRetry(request);
         return ResponseEntity.ok(result);
     }
 }

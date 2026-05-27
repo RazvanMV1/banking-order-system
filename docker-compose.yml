@@ -6,6 +6,7 @@ services:
       POSTGRES_DB: bankingdb
       POSTGRES_USER: razvan
       POSTGRES_PASSWORD: secret
+    command: postgres -c max_connections=300
     ports:
       - "5432:5432"
     volumes:

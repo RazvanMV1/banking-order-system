@@ -18,9 +18,9 @@ public class OkHttpConfig {
         dispatcher.setMaxRequestsPerHost(2000);
 
         ConnectionPool connectionPool = new ConnectionPool(
-                200,
-                5,
-                TimeUnit.MINUTES
+                1000,
+                30,
+                TimeUnit.SECONDS
         );
 
         return new OkHttpClient.Builder()

@@ -8,18 +8,22 @@ import static io.gatling.javaapi.http.HttpDsl.*;
 
 public class OrderSimulation extends Simulation {
 
+    private static final int TARGET_RPS = 333;
+    private static final int RAMP_DURATION_SECONDS = 30;
+    private static final int STEADY_DURATION_SECONDS = 60;
+
     HttpProtocolBuilder httpProtocol = http
             .baseUrl("http://localhost:8080")
             .acceptHeader("application/json")
             .contentTypeHeader("application/json");
 
-    ScenarioBuilder scenariu = scenario("Order Processing")
+    ScenarioBuilder scenariu = scenario("Order Processing V2 - Virtual Threads")
             .exec(
-                    http("Process Order")
+                    http("Process Single Order")
                             .post("/gateway/process")
                             .body(StringBody(session -> {
                                 int randomId = new Random().nextInt(10000) + 1;
-                                return "[" + randomId + "]";
+                                return "{\"orderId\": " + randomId + "}";
                             }))
                             .check(status().is(200))
             );
@@ -27,13 +31,9 @@ public class OrderSimulation extends Simulation {
     {
         setUp(
                 scenariu.injectOpen(
-                        rampUsersPerSec(1).to(50).during(10),
-                        constantUsersPerSec(50).during(30),
-                        rampUsersPerSec(50).to(200).during(30),
-                        constantUsersPerSec(200).during(30)
+                        rampUsersPerSec(1).to(TARGET_RPS).during(RAMP_DURATION_SECONDS),
+                        constantUsersPerSec(TARGET_RPS).during(STEADY_DURATION_SECONDS)
                 )
-        )
-                .protocols(httpProtocol);
-
+        ).protocols(httpProtocol);
     }
 }

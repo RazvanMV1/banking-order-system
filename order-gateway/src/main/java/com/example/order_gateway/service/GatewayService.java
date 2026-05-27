@@ -11,9 +11,6 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 @Service
 @Slf4j
@@ -22,14 +19,12 @@ public class GatewayService {
     private final OkHttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final String processorBaseUrl;
-    private final ExecutorService virtualThreadExecutor;
 
     public static final MediaType JSON = MediaType.get("application/json");
 
     public GatewayService(
             @Value("${order.processor.base-url}") String processorBaseUrl,
             OkHttpClient httpClient) {
-        this.virtualThreadExecutor = Executors.newVirtualThreadPerTaskExecutor();
         this.httpClient = httpClient;
         this.objectMapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule());
@@ -73,17 +68,14 @@ public class GatewayService {
     }
 
     public OrderDTO processOrder(Long orderId) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                log.info("Getting order: {}", orderId);
-                OrderDTO order = getOrder(orderId);
-
-                log.info("Processing order: {}", orderId);
-                return processOrder(orderId, order.getAmount());
-            } catch (IOException e) {
-                log.error("Error processing order {}: {}", orderId, e.getMessage());
-                throw new RuntimeException(e);
-            }
-        }, virtualThreadExecutor).join();
+        try {
+            log.info("Getting order: {}", orderId);
+            OrderDTO order = getOrder(orderId);
+            log.info("Processing order: {}", orderId);
+            return processOrder(orderId, order.getAmount());
+        } catch (IOException e) {
+            log.error("Error processing order {}: {}", orderId, e.getMessage());
+            throw new RuntimeException(e);
+        }
     }
 }
