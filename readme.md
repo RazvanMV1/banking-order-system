@@ -135,6 +135,16 @@ After the load test we verified the database state directly in PostgreSQL.
 
 The system processed every request exactly once, even under heavy concurrency.
 
+## Unit Tests
+
+Both microservices have unit tests written with JUnit 5 and Mockito. The tests run in isolation without a real database or HTTP server.
+
+OrderProcessor covers three layers. OrderService is tested for correct amount processing, wrong amount reversal, order not found and already processed scenarios. RetryService is tested for first attempt success, retry after optimistic locking conflicts and exhausting all retries. OrderController is tested for successful GET and PUT responses, 500 on order not found and 409 on optimistic locking conflict.
+
+OrderGateway covers the HTTP communication layer. GatewayService is tested using MockWebServer which simulates real HTTP responses from OrderProcessor without starting the actual service. Tests cover the full successful flow, 500 from processor and 404 from processor.
+
+Total: 16 tests, 0 failures across both microservices.
+
 ## Roadmap
 
 - [x] OrderProcessor + OrderGateway
@@ -147,3 +157,4 @@ The system processed every request exactly once, even under heavy concurrency.
 - [x] Global error handling
 - [x] HikariCP + PostgreSQL tuning
 - [x] Consistency test at 277 req/s
+- [x] Unit tests with JUnit 5 and Mockito
